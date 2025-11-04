@@ -32,36 +32,56 @@ function handleFiles(files, replace = false) {
   
   // Remove duplicates by filename
   pdfFiles = pdfFiles.filter(
-    (file, index, self) =>
-    index === self.findIndex(f => f.name === file.name)
+    (file, index, self) => index === self.findIndex(f => f.name === file.name)
   );
   
   pdfInput.value = ''; // clear input after use
   displayFiles();
 }
 
-// 🧾 Display list with sort button
+// 🧾 Display list with sort & remove buttons
 function displayFiles() {
   if (pdfFiles.length === 0) {
     fileNameDiv.innerHTML = "<p>No PDF files selected.</p>";
     return;
   }
   
+  // render list (numbered via CSS list-style or you can add numbers manually)
   fileNameDiv.innerHTML = `
     <div class="file-list">
-      <button id="sortBtn">${sortAsc ? "Sort ↓ (Z-A)" : "Sort ↑ (A-Z)"}</button>
+<span class="indicator">Files loaded: ${pdfFiles.length} (Maximum allowed: 9999)</span>      <button id="sortBtn" type="button">${sortAsc ? "Sort ↓ (Z-A)" : "Sort ↑ (A-Z)"}</button>
       <ul>
-        ${pdfFiles.map(f => `<li>${f.name}</li>`).join('')}
+        ${pdfFiles.map((f, i) => `
+          <li>
+            <span class="file-name">${i+1 + "."} ${f.name}</span>
+            <button class="remove-btn" data-index="${i}" type="button" aria-label="Remove file">✖</button>
+          </li>
+        `).join('')}
       </ul>
     </div>
   `;
   
-  document.getElementById('sortBtn').addEventListener('click', () => {
-    sortAsc = !sortAsc;
-    pdfFiles.sort((a, b) =>
-      sortAsc ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name)
-    );
-    displayFiles();
+  // attach sort listener (re-render after toggling)
+  const sortBtn = document.getElementById('sortBtn');
+  if (sortBtn) {
+    sortBtn.addEventListener('click', () => {
+      sortAsc = !sortAsc;
+      pdfFiles.sort((a, b) => sortAsc ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name));
+      displayFiles();
+    });
+  }
+  
+  // attach remove listeners AFTER rendering the buttons
+  document.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const idx = Number(e.currentTarget.dataset.index);
+      // Safety: if index invalid, do nothing
+      if (!Number.isFinite(idx) || idx < 0 || idx >= pdfFiles.length) return;
+      
+      // remove the file and re-render
+      pdfFiles.splice(idx, 1);
+      displayFiles();
+    });
   });
 }
 
