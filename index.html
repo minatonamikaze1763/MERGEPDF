@@ -1,3 +1,5 @@
+<!-- 
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -6,14 +8,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Form 22 Builder - Generate and merge Form 22 PDFs from Excel data for Petrol or EV vehicles.">
   <meta name="author" content="Nandhu">
-  <title>MERGE PDF</title>
+  <title>PDF Tool</title>
   
-  <!-- ✅ CDN Libraries -->
+  ✅ CDN Libraries
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
   
-  <!-- CSS -->
+  CSS
   <link rel="stylesheet" href="style.css">
 </head>
 
@@ -29,7 +31,84 @@
     
   </div>
   
-  <!-- JS -->
+  JS
+  <script src="script.js"></script>
+</body>
+
+</html>
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="All-in-one PDF Tool - Convert, Edit, Organize, and Merge PDFs easily.">
+  <meta name="author" content="Nandhu">
+  <title>PDF Tool by Nandhu</title>
+  
+  <!-- Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <div class="app-layout">
+    <!-- ✅ Sidebar -->
+    <aside class="sidebar">
+      <h2>📘 PDF Tools</h2>
+      
+      <div class="tool-section">
+        <h3>Convert from PDF</h3>
+        <ul>
+          <li><a href="#">PDF to Word</a></li>
+          <li><a href="#">PDF to JPG</a></li>
+          <li><a href="#">PDF to Excel</a></li>
+        </ul>
+      </div>
+      
+      <div class="tool-section">
+        <h3>Convert to PDF</h3>
+        <ul>
+          <li><a href="#">JPG to PDF</a></li>
+          <li><a href="#">Word to PDF</a></li>
+          <li><a href="#">Excel to PDF</a></li>
+        </ul>
+      </div>
+      
+      <div class="tool-section">
+        <h3>Organize PDFs</h3>
+        <ul>
+          <li><a href="#" class="active">Merge PDFs</a></li>
+          <li><a href="#">Split PDF</a></li>
+          <!--           <li><a href="#">Add or Delete Pages</a></li>
+<li><a href="#">Reorder Pages</a></li>
+<li><a href="#">Rotate Pages</a></li>
+ -->
+          <li><a href="#">Edit Text (Preview Mode)</a></li>
+        </ul>
+      </div>
+    </aside>
+    
+    <!-- ✅ Main Workspace -->
+    <main class="workspace">
+      <div class="container">
+        <h1>Merge PDF Files</h1>
+        <label class="dropZone" id="mergeDropZone" for="mergePdfFiles">
+          Drag & Drop or Click to Upload PDF Files
+        </label>
+        <input type="file" id="mergePdfFiles" multiple accept=".pdf" />
+        <button id="mergeGenerateBtn">Generate Merged PDF</button>
+        <div id="mergeStatus"></div>
+        <div id="mergeFileList"></div>
+      </div>
+    </main>
+  </div>
+  
   <script src="script.js"></script>
 </body>
 
