@@ -130,32 +130,75 @@ function loadTool(toolName) {
   initTool(toolName);
 }
 
-// ========= Default Load ==========
-loadTool('merge');
+
+// helper to map visible text -> tool id (same logic you had)
+function getToolIdFromText(text) {
+  text = text.toLowerCase();
+  if (text.includes('merge')) return 'merge';
+  if (text.includes('split')) return 'split';
+  if (text.includes('pdf to word')) return 'pdfToWord';
+  if (text.includes('word to pdf')) return 'wordToPdf';
+  if (text.includes('pdf to excel')) return 'pdfToExcel';
+  if (text.includes('excel to pdf')) return 'excelToPdf';
+  if (text.includes('jpg to pdf')) return 'jpgToPdf';
+  if (text.includes('pdf to jpg')) return 'pdfToJpg';
+  if (text.includes('edit')) return 'pdfEditor';
+  if (text.includes('organize') || text.includes('delete') || text.includes('rotate')) return 'organizer';
+  return 'merge';
+}
 
 // ========= Sidebar Navigation ==========
-document.querySelectorAll('.tool-section li').forEach((item) => {
+const toolItems = document.querySelectorAll('.tool-section li');
+toolItems.forEach((item) => {
   item.addEventListener('click', () => {
-    const text = item.textContent.trim().toLowerCase();
+    const visibleText = item.textContent.trim(); // store visible text
+    localStorage.setItem('selectedToolText', visibleText); // persist
     
-    if (text.includes('merge')) loadTool('merge');
-    else if (text.includes('split')) loadTool('split');
-    else if (text.includes('pdf to word')) loadTool('pdfToWord');
-    else if (text.includes('word to pdf')) loadTool('wordToPdf');
-    else if (text.includes('pdf to excel')) loadTool('pdfToExcel');
-    else if (text.includes('excel to pdf')) loadTool('excelToPdf');
-    else if (text.includes('jpg to pdf')) loadTool('jpgToPdf');
-    else if (text.includes('pdf to jpg')) loadTool('pdfToJpg');
-    else if (text.includes('edit')) loadTool('pdfEditor');
-    else if (text.includes('organize') || text.includes('delete') || text.includes('rotate')) loadTool('organizer');
-    else loadTool('merge');
+    const toolId = getToolIdFromText(visibleText);
+    loadTool(toolId);
+    
+    // manage active classes on li
+    toolItems.forEach(i => i.classList.remove('active'));
+    item.classList.add('active');
+    
+    // also try to highlight any matching .sidebar a by text (if present)
+    document.querySelectorAll('.sidebar a').forEach(a => {
+      a.classList.toggle('active', a.textContent.trim().toLowerCase() === visibleText.toLowerCase());
+    });
   });
 });
+
+// highlight when clicking sidebar links (keeps existing behavior)
 document.querySelectorAll('.sidebar a').forEach(link => {
   link.addEventListener('click', e => {
     document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
     e.target.classList.add('active');
   });
+});
+
+// ========= Restore last selected tool on reload ==========
+window.addEventListener('DOMContentLoaded', () => {
+  const lastText = localStorage.getItem('selectedToolText');
+  if (lastText) {
+    // find the li whose visible text matches stored text (case-insensitive)
+    const matched = Array.from(toolItems).find(i => i.textContent.trim().toLowerCase() === lastText.toLowerCase());
+    const toolId = getToolIdFromText(lastText);
+    loadTool(toolId);
+    
+    // mark active li if found
+    if (matched) {
+      toolItems.forEach(i => i.classList.remove('active'));
+      matched.classList.add('active');
+    }
+    
+    // mark active sidebar link if text matches
+    document.querySelectorAll('.sidebar a').forEach(a => {
+      a.classList.toggle('active', a.textContent.trim().toLowerCase() === lastText.toLowerCase());
+    });
+  } else {
+    // fallback
+    loadTool('merge');
+  }
 });
 // ========= Tool Initializers ==========
 function initTool(name) {
@@ -523,13 +566,13 @@ function initJpgToPdf() {
   const convertBtn = document.getElementById('convertBtn');
   const status = document.getElementById('status');
   const mergeCheckbox = document.getElementById('mergeJpgs');
-
+  
   let jpgFiles = [];
   let sortAsc = true;
-
+  
   // 📁 Manual file selection
   fileInput.addEventListener('change', (e) => handleFiles(e.target.files, true));
-
+  
   // 📂 Drag & Drop support
   dropZone.addEventListener('dragover', (e) => {
     e.preventDefault();
@@ -541,32 +584,30 @@ function initJpgToPdf() {
     dropZone.classList.remove('dragging');
     handleFiles(e.dataTransfer.files, false);
   });
-
+  
   // Handle file loading
   function handleFiles(files, replace = false) {
-    const valid = Array.from(files).filter(f =>
-      ['image/jpeg', 'image/png', 'image/jpg'].includes(f.type)
-    );
-
+    const valid = Array.from(files).filter(f => ['image/jpeg', 'image/png', 'image/jpg'].includes(f.type));
+    
     jpgFiles = replace ? valid : [...jpgFiles, ...valid];
-
+    
     // Remove duplicates by name
     jpgFiles = jpgFiles.filter(
       (file, i, self) => i === self.findIndex(f => f.name === file.name)
     );
-
+    
     fileInput.value = ''; // reset file input
     renderFileList();
   }
-
+  
   // 🧾 Display file list
   function renderFileList() {
-  if (jpgFiles.length === 0) {
-    fileListDiv.innerHTML = "<p>No image files selected.</p>";
-    return;
-  }
-  
-  fileListDiv.innerHTML = `
+    if (jpgFiles.length === 0) {
+      fileListDiv.innerHTML = "<p>No image files selected.</p>";
+      return;
+    }
+    
+    fileListDiv.innerHTML = `
     <div class="img-file-list">
       <span class="indicator">
         <i class="fa-solid fa-image"></i> ${jpgFiles.length} image(s) selected
@@ -595,36 +636,36 @@ function initJpgToPdf() {
       </ul>
     </div>
   `;
-  
-  // Sort logic
-  document.getElementById("jpgSortBtn").addEventListener("click", () => {
-    sortAsc = !sortAsc;
-    jpgFiles.sort((a, b) =>
-      sortAsc ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name)
-    );
-    renderFileList();
-  });
-  
-  // Remove logic
-  document.querySelectorAll(".img-remove-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      const idx = +e.currentTarget.dataset.index;
-      jpgFiles.splice(idx, 1);
+    
+    // Sort logic
+    document.getElementById("jpgSortBtn").addEventListener("click", () => {
+      sortAsc = !sortAsc;
+      jpgFiles.sort((a, b) =>
+        sortAsc ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name)
+      );
       renderFileList();
     });
-  });
-}
-
+    
+    // Remove logic
+    document.querySelectorAll(".img-remove-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const idx = +e.currentTarget.dataset.index;
+        jpgFiles.splice(idx, 1);
+        renderFileList();
+      });
+    });
+  }
+  
   // 🧩 Convert to PDF
   convertBtn.addEventListener('click', async () => {
     if (jpgFiles.length === 0) {
       status.innerHTML = "<span style='color:red'>Please select at least one image.</span>";
       return;
     }
-
+    
     const mergeAll = mergeCheckbox.checked;
     status.textContent = "Processing images...";
-
+    
     try {
       if (jpgFiles.length === 1 || mergeAll) {
         await mergeImagesToSinglePDF(jpgFiles);
@@ -638,54 +679,55 @@ function initJpgToPdf() {
       status.innerHTML = "<span style='color:red'>❌ Error converting images.</span>";
     }
   });
-
+  
   // 🧾 Merge all images into one PDF
   async function mergeImagesToSinglePDF(files) {
     const { PDFDocument } = PDFLib;
     const pdfDoc = await PDFDocument.create();
-
+    
     for (const file of files) {
       const imgBytes = await file.arrayBuffer();
-      const img = file.type === "image/png"
-        ? await pdfDoc.embedPng(imgBytes)
-        : await pdfDoc.embedJpg(imgBytes);
-
+      const img = file.type === "image/png" ?
+        await pdfDoc.embedPng(imgBytes) :
+        await pdfDoc.embedJpg(imgBytes);
+      
       const dims = img.scale(1);
       const page = pdfDoc.addPage([dims.width, dims.height]);
       page.drawImage(img, { x: 0, y: 0, width: dims.width, height: dims.height });
     }
-
+    
     const pdfBytes = await pdfDoc.save();
     saveAs(new Blob([pdfBytes], { type: "application/pdf" }), `merged_images_${Date.now()}.pdf`);
   }
-
+  
   // 📦 Separate PDFs into ZIP
   async function createSeparatePDFsZip(files) {
     const { PDFDocument } = PDFLib;
     const zip = new JSZip();
-
+    
     for (const file of files) {
       const pdfDoc = await PDFDocument.create();
       const imgBytes = await file.arrayBuffer();
-      const img = file.type === "image/png"
-        ? await pdfDoc.embedPng(imgBytes)
-        : await pdfDoc.embedJpg(imgBytes);
-
+      const img = file.type === "image/png" ?
+        await pdfDoc.embedPng(imgBytes) :
+        await pdfDoc.embedJpg(imgBytes);
+      
       const dims = img.scale(1);
       const page = pdfDoc.addPage([dims.width, dims.height]);
       page.drawImage(img, { x: 0, y: 0, width: dims.width, height: dims.height });
-
+      
       const pdfBytes = await pdfDoc.save();
       const pdfName = `${file.name.replace(/\.[^/.]+$/, "")}.pdf`;
       zip.file(pdfName, pdfBytes);
     }
-
+    
     const content = await zip.generateAsync({ type: "blob" });
     saveAs(content, `images_to_pdfs_${Date.now()}.zip`);
   }
 }
 // ========== end =========
 
+// ========== pdf to jpg =========
 async function initPdfToJpg() {
   const dropZone = document.getElementById("pdfDropZone");
   const input = document.getElementById("pdfToJpgInput");
@@ -790,7 +832,7 @@ async function initPdfToJpg() {
     }
   });
 }
-
+// ========== end =========
 
 
 function initPdfEditor() {
