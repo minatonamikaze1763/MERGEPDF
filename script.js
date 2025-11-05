@@ -100,13 +100,18 @@ const tools = {
 </div>
 `,
   pdfEditor: `
-    <div class="container">
-      <h1><i class="fa-solid fa-pen-to-square"></i>  PDF Text Editor</h1>
-      <p>Upload a PDF to preview and edit text.</p>
-      <input type="file" id="pdfEditorFile" accept=".pdf" />
-      <canvas id="pdfCanvas" style="border:1px solid #ccc; width:100%; margin-top:1rem;"></canvas>
-      <button id="saveEditedPdf">Save Edited PDF</button>
-    </div>
+<div class="container">
+  <h1><i class="fa-solid fa-pen-to-square"></i> PDF Text Editor</h1>
+  <p>Upload or drag & drop PDFs to edit text directly on pages.</p>
+
+  <div id="dropZone" class="dropZone">
+    <p>Drop PDF files here or click to select</p>
+    <input type="file" id="pdfEditorFile" accept=".pdf" multiple hidden />
+  </div>
+
+  <div id="previewContainer" class="preview-container"></div>
+  <button id="saveEditedPdf">Save Edited & Merged PDF</button>
+</div>
   `,
   
   organizer: `
@@ -834,10 +839,131 @@ async function initPdfToJpg() {
 }
 // ========== end =========
 
-
-function initPdfEditor() {
-  const saveBtn = document.getElementById('saveEditedPdf');
-  saveBtn.addEventListener('click', () => alert("PDF Editor save not implemented yet."));
+async function initPdfEditor() {
+  const dropZone = document.getElementById("dropZone");
+  const fileInput = document.getElementById("pdfEditorFile");
+  const previewContainer = document.getElementById("previewContainer");
+  const saveBtn = document.getElementById("saveEditedPdf");
+  let selectedFiles = [];
+  
+  // Handle drag & drop
+  dropZone.addEventListener("click", () => fileInput.click());
+  dropZone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropZone.classList.add("dragover");
+  });
+  dropZone.addEventListener("dragleave", () =>
+    dropZone.classList.remove("dragover")
+  );
+  dropZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropZone.classList.remove("dragover");
+    handleFiles(e.dataTransfer.files);
+  });
+  fileInput.addEventListener("change", (e) => handleFiles(e.target.files));
+  
+  function handleFiles(files) {
+    selectedFiles = Array.from(files);
+    previewContainer.innerHTML = "";
+    selectedFiles.forEach((file) => renderPdfPreview(file));
+  }
+  
+  // Render pages and extract editable text
+  async function renderPdfPreview(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    
+    const fileDiv = document.createElement("div");
+    fileDiv.innerHTML = `<h3>${file.name}</h3>`;
+    previewContainer.appendChild(fileDiv);
+    
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const viewport = page.getViewport({ scale: 1.3 });
+      
+      const pageWrapper = document.createElement("div");
+      pageWrapper.className = "page-wrapper";
+      const canvas = document.createElement("canvas");
+      canvas.className = "page-canvas";
+      const ctx = canvas.getContext("2d");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      pageWrapper.appendChild(canvas);
+      fileDiv.appendChild(pageWrapper);
+      
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      
+      // Create editable text layer
+      const textContent = await page.getTextContent();
+      const textLayer = document.createElement("div");
+      textLayer.className = "text-layer";
+      pageWrapper.appendChild(textLayer);
+      
+      textContent.items.forEach((item) => {
+        const span = document.createElement("span");
+        span.className = "text-span";
+        span.textContent = item.str;
+        span.contentEditable = true;
+        
+        const transform = item.transform;
+        const fontSize = Math.sqrt(transform[0] ** 2 + transform[1] ** 2);
+        const x = transform[4];
+        const y = viewport.height - transform[5];
+        
+        span.style.left = `${x}px`;
+        span.style.top = `${y - fontSize}px`;
+        span.style.fontSize = `${fontSize}px`;
+        
+        span.dataset.file = file.name;
+        span.dataset.page = i;
+        textLayer.appendChild(span);
+      });
+    }
+  }
+  
+  // Save merged and edited PDF
+  saveBtn.addEventListener("click", async () => {
+    if (!selectedFiles.length) return alert("Please upload PDFs first!");
+    const mergedPdf = await PDFLib.PDFDocument.create();
+    
+    for (const file of selectedFiles) {
+      const buffer = await file.arrayBuffer();
+      const pdfDoc = await PDFLib.PDFDocument.load(buffer);
+      const copiedPages = await mergedPdf.copyPages(
+        pdfDoc,
+        pdfDoc.getPageIndices()
+      );
+      copiedPages.forEach((p) => mergedPdf.addPage(p));
+    }
+    
+    const spans = document.querySelectorAll(".text-span");
+    const pages = mergedPdf.getPages();
+    
+    spans.forEach((span) => {
+      const pageIndex = parseInt(span.dataset.page) - 1;
+      const text = span.textContent.trim();
+      if (!text) return;
+      
+      const page = pages[pageIndex];
+      const x = parseFloat(span.style.left);
+      const y = parseFloat(span.style.top);
+      const fontSize = parseFloat(span.style.fontSize);
+      
+      page.drawText(text, {
+        x,
+        y: page.getHeight() - y - 10,
+        size: fontSize,
+        color: PDFLib.rgb(0, 0, 0),
+      });
+    });
+    
+    const pdfBytes = await mergedPdf.save();
+    const blob = new Blob([pdfBytes], { type: "application/pdf" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "Edited_Merged_PDF.pdf";
+    link.click();
+  });
 }
 
 function initOrganizer() {
