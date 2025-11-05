@@ -122,7 +122,8 @@ h1 {
   transition: 0.3s;
 }
 
-.dropZone:hover {
+.dropZone:hover ,
+.dropZone.dragging{
   background: #ede9fe;
 }
 

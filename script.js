@@ -268,7 +268,7 @@ function initMerge() {
       });
     });
   }
-  
+
   // 🧩 Merge action
   generateBtn.addEventListener('click', async () => {
     if (mergeFiles.length === 0) {
