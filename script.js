@@ -127,9 +127,7 @@ loadTool('merge');
 document.querySelectorAll('.tool-section li').forEach((item) => {
   item.addEventListener('click', () => {
     const text = item.textContent.trim().toLowerCase();
-    document.querySelectorAll('.sidebar a, .tool-section li').forEach(a => a.classList.remove('active'));
-    item.classList.add('active');
-    
+        
     if (text.includes('merge')) loadTool('merge');
     else if (text.includes('split')) loadTool('split');
     else if (text.includes('pdf to word')) loadTool('pdfToWord');
@@ -143,7 +141,12 @@ document.querySelectorAll('.tool-section li').forEach((item) => {
     else loadTool('merge');
   });
 });
-
+document.querySelectorAll('.sidebar a').forEach(link => {
+  link.addEventListener('click', e => {
+    document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+    e.target.classList.add('active');
+  });
+});
 // ========= Tool Initializers ==========
 function initTool(name) {
   switch (name) {
