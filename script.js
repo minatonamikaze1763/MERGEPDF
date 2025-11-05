@@ -67,13 +67,22 @@ const tools = {
   `,
   
   jpgToPdf: `
-    <div class="container">
-      <h1><i class="fa-solid fa-file-image"></i>  JPG ➜ PDF Converter</h1>
-      <label class="dropZone" for="jpgFiles">Select Image Files</label>
-      <input type="file" id="jpgFiles" multiple accept=".jpg,.jpeg,.png" />
-      <button id="convertBtn">Convert to PDF</button>
-      <div id="status"></div>
-    </div>
+<div class="container" id="jpgToPdfContainer">
+  <h1><i class="fa-solid fa-file-image"></i> JPG ➜ PDF Converter</h1>
+
+  <label class="dropZone" id="jpgDropZone" for="jpgFiles">Drag and drop or Click to Select Image Files</label>
+  <input type="file" id="jpgFiles" multiple accept=".jpg,.jpeg,.png" />
+  <button id="convertBtn">Convert to PDF</button>
+
+  <div class="merge-option">
+    <input type="checkbox" id="mergeJpgs" />
+    <label for="mergeJpgs">Merge all images into one PDF</label>
+  </div>
+  
+  <div id="jpgFileList" class="file-list"></div>
+
+  <div id="status"></div>
+</div>
   `,
   pdfToJpg: `
   <div class="container">
@@ -345,6 +354,7 @@ async function splitPdfFile() {
     status.textContent = "❌ Error splitting PDF.";
   }
 }
+
 function initSplit() {
   const fileInput = document.getElementById('splitPdf');
   const btn = document.getElementById('splitBtn');
@@ -372,16 +382,122 @@ function initSplit() {
 // ========== end =========
 
 
+// ========== pdf to word not working =========
+async function convertPdfToWord() {
+  const input = document.getElementById('pdfFiles');
+  const status = document.getElementById('status');
+  const files = input.files;
+  
+  if (!files.length) {
+    status.textContent = "Please select at least one PDF file.";
+    return;
+  }
+  
+  status.textContent = "Processing... Please wait ⏳";
+  
+  const zip = new JSZip();
+  
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    status.textContent = `Extracting text from ${file.name} (${i + 1}/${files.length})...`;
+    
+    const arrayBuffer = await file.arrayBuffer();
+    
+    // Load PDF using pdf.js
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = "";
+    
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str).join(" ");
+      fullText += `\n--- Page ${pageNum} ---\n${pageText}\n`;
+      status.textContent = `Reading ${file.name}: Page ${pageNum}/${pdf.numPages}`;
+    }
+    
+    // Create Word document using docx.js
+    const doc = new docx.Document({
+      sections: [
+      {
+        properties: {},
+        children: [
+          new docx.Paragraph({
+            children: [new docx.TextRun(fullText)],
+          }),
+        ],
+      }, ],
+    });
+    
+    const docBuffer = await docx.Packer.toBlob(doc);
+    const docName = file.name.replace(/\.pdf$/i, ".docx");
+    zip.file(docName, docBuffer);
+  }
+  
+  // If multiple files, create ZIP; if single, download directly
+  if (files.length > 1) {
+    const zipBlob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(zipBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "converted_pdfs_to_word.zip";
+    a.click();
+    URL.revokeObjectURL(url);
+    status.textContent = `✅ Converted ${files.length} PDFs and downloaded as ZIP.`;
+  } else {
+    const file = files[0];
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = "";
+    
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str).join(" ");
+      fullText += `\n--- Page ${pageNum} ---\n${pageText}\n`;
+    }
+    
+    const doc = new docx.Document({
+      sections: [
+      {
+        properties: {},
+        children: [new docx.Paragraph({ children: [new docx.TextRun(fullText)] })],
+      }, ],
+    });
+    
+    const blob = await docx.Packer.toBlob(doc);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = file.name.replace(/\.pdf$/i, ".docx");
+    a.click();
+    URL.revokeObjectURL(url);
+    status.textContent = `✅ Converted ${file.name} to Word.`;
+  }
+}
 
 function initPdfToWord() {
-  const btn = document.getElementById('convertBtn');
-  btn.addEventListener('click', () => alert("PDF ➜ Word function not implemented yet."));
+  const input = document.getElementById("pdfFiles");
+  const btn = document.getElementById("convertBtn");
+  const status = document.getElementById("status");
+  
+  input.addEventListener("change", () => {
+    if (input.files.length > 0) {
+      const names = Array.from(input.files).map(f => f.name).join(", ");
+      status.innerHTML = `📄 Selected: <b>${names}</b>`;
+    } else {
+      status.textContent = "No file selected.";
+    }
+  });
+  
+  btn.addEventListener("click", convertPdfToWord);
 }
+// ========== end =========
 
 function initWordToPdf() {
   const btn = document.getElementById('convertBtn');
   btn.addEventListener('click', () => alert("Word ➜ PDF function not implemented yet."));
 }
+// ========== end =========
 
 function initPdfToExcel() {
   const btn = document.getElementById('convertBtn');
@@ -393,10 +509,177 @@ function initExcelToPdf() {
   btn.addEventListener('click', () => alert("Excel ➜ PDF function not implemented yet."));
 }
 
+
+// ========== jpg to pdf =========
 function initJpgToPdf() {
-  const btn = document.getElementById('convertBtn');
-  btn.addEventListener('click', () => alert("JPG ➜ PDF function not implemented yet."));
+  const dropZone = document.getElementById('jpgDropZone');
+  const fileInput = document.getElementById('jpgFiles');
+  const fileListDiv = document.getElementById('jpgFileList');
+  const convertBtn = document.getElementById('convertBtn');
+  const status = document.getElementById('status');
+  const mergeCheckbox = document.getElementById('mergeJpgs');
+
+  let jpgFiles = [];
+  let sortAsc = true;
+
+  // 📁 Manual file selection
+  fileInput.addEventListener('change', (e) => handleFiles(e.target.files, true));
+
+  // 📂 Drag & Drop support
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragging');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragging'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragging');
+    handleFiles(e.dataTransfer.files, false);
+  });
+
+  // Handle file loading
+  function handleFiles(files, replace = false) {
+    const valid = Array.from(files).filter(f =>
+      ['image/jpeg', 'image/png', 'image/jpg'].includes(f.type)
+    );
+
+    jpgFiles = replace ? valid : [...jpgFiles, ...valid];
+
+    // Remove duplicates by name
+    jpgFiles = jpgFiles.filter(
+      (file, i, self) => i === self.findIndex(f => f.name === file.name)
+    );
+
+    fileInput.value = ''; // reset file input
+    renderFileList();
+  }
+
+  // 🧾 Display file list
+  function renderFileList() {
+  if (jpgFiles.length === 0) {
+    fileListDiv.innerHTML = "<p>No image files selected.</p>";
+    return;
+  }
+  
+  fileListDiv.innerHTML = `
+    <div class="img-file-list">
+      <span class="indicator">
+        <i class="fa-solid fa-image"></i> ${jpgFiles.length} image(s) selected
+      </span>
+      <button id="jpgSortBtn" type="button" class="sort-btn">
+        ${sortAsc ? "Sort ↓ (Z-A)" : "Sort ↑ (A-Z)"}
+      </button>
+
+      <ul class="img-list">
+        ${jpgFiles
+          .map(
+            (f, i) => `
+            <li class="img-item">
+              <div class="img-preview">
+                <img src="${URL.createObjectURL(f)}" alt="${f.name}" class="img-thumb" />
+              </div>
+              <div class="img-info">
+                <span class="img-name">${i + 1}. ${f.name}</span>
+              </div>
+              <button class="remove-btn" data-index="${i}">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </li>`
+          )
+          .join("")}
+      </ul>
+    </div>
+  `;
+  
+  // Sort logic
+  document.getElementById("jpgSortBtn").addEventListener("click", () => {
+    sortAsc = !sortAsc;
+    jpgFiles.sort((a, b) =>
+      sortAsc ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name)
+    );
+    renderFileList();
+  });
+  
+  // Remove logic
+  document.querySelectorAll(".img-remove-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      const idx = +e.currentTarget.dataset.index;
+      jpgFiles.splice(idx, 1);
+      renderFileList();
+    });
+  });
 }
+
+  // 🧩 Convert to PDF
+  convertBtn.addEventListener('click', async () => {
+    if (jpgFiles.length === 0) {
+      status.innerHTML = "<span style='color:red'>Please select at least one image.</span>";
+      return;
+    }
+
+    const mergeAll = mergeCheckbox.checked;
+    status.textContent = "Processing images...";
+
+    try {
+      if (jpgFiles.length === 1 || mergeAll) {
+        await mergeImagesToSinglePDF(jpgFiles);
+        status.innerHTML = "<span style='color:green'>✅ PDF created successfully.</span>";
+      } else {
+        await createSeparatePDFsZip(jpgFiles);
+        status.innerHTML = "<span style='color:green'>✅ Separate PDFs zipped successfully.</span>";
+      }
+    } catch (err) {
+      console.error(err);
+      status.innerHTML = "<span style='color:red'>❌ Error converting images.</span>";
+    }
+  });
+
+  // 🧾 Merge all images into one PDF
+  async function mergeImagesToSinglePDF(files) {
+    const { PDFDocument } = PDFLib;
+    const pdfDoc = await PDFDocument.create();
+
+    for (const file of files) {
+      const imgBytes = await file.arrayBuffer();
+      const img = file.type === "image/png"
+        ? await pdfDoc.embedPng(imgBytes)
+        : await pdfDoc.embedJpg(imgBytes);
+
+      const dims = img.scale(1);
+      const page = pdfDoc.addPage([dims.width, dims.height]);
+      page.drawImage(img, { x: 0, y: 0, width: dims.width, height: dims.height });
+    }
+
+    const pdfBytes = await pdfDoc.save();
+    saveAs(new Blob([pdfBytes], { type: "application/pdf" }), `merged_images_${Date.now()}.pdf`);
+  }
+
+  // 📦 Separate PDFs into ZIP
+  async function createSeparatePDFsZip(files) {
+    const { PDFDocument } = PDFLib;
+    const zip = new JSZip();
+
+    for (const file of files) {
+      const pdfDoc = await PDFDocument.create();
+      const imgBytes = await file.arrayBuffer();
+      const img = file.type === "image/png"
+        ? await pdfDoc.embedPng(imgBytes)
+        : await pdfDoc.embedJpg(imgBytes);
+
+      const dims = img.scale(1);
+      const page = pdfDoc.addPage([dims.width, dims.height]);
+      page.drawImage(img, { x: 0, y: 0, width: dims.width, height: dims.height });
+
+      const pdfBytes = await pdfDoc.save();
+      const pdfName = `${file.name.replace(/\.[^/.]+$/, "")}.pdf`;
+      zip.file(pdfName, pdfBytes);
+    }
+
+    const content = await zip.generateAsync({ type: "blob" });
+    saveAs(content, `images_to_pdfs_${Date.now()}.zip`);
+  }
+}
+// ========== end =========
 
 async function initPdfToJpg() {
   const fileInput = document.getElementById("pdfToJpgInput");

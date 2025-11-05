@@ -7,16 +7,40 @@
   <meta name="description" content="All-in-one PDF Tool - Convert, Edit, Organize, and Merge PDFs easily.">
   <meta name="author" content="Nandhu">
   <title>PDF Tool by Nandhu</title>
-  
+  <!-- 🔹 Libraries -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-  <!-- Libraries -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  
+  <!-- PDF.js (for reading PDF text) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc =
+      "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js";
+  </script>
+  
+  
+  <!-- docx library – use a version known to expose global -->
+  <script src="https://unpkg.com/docx@7.8.2/build/index.umd.js"></script>
+  <script>
+    /*if (!window.docx) {
+      console.error("docx library not loaded properly!");
+    } else {
+      console.log("docx version loaded:", window.docx.version);
+    }*/
+  </script>
+  
+  <!-- JSZip (for zipping multiple .docx files) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  
+  <!-- pdf-lib (used elsewhere, not required for PDF→Word conversion) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  
+  <!-- XLSX and FileSaver (used in other tools) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  
+  
   <link rel="stylesheet" href="style.css">
 </head>
 
