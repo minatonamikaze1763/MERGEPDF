@@ -85,14 +85,19 @@ const tools = {
 </div>
   `,
   pdfToJpg: `
-  <div class="container">
-    <h1><i class="fa-solid fa-file-image"></i>  PDF ➜ JPG Converter</h1>
-    <label class="dropZone" for="pdfToJpgInput">Select PDF File</label>
-    <input type="file" id="pdfToJpgInput" accept=".pdf" />
-    <button id="convertToJpgBtn">Convert to JPG</button>
-    <div id="status"></div>
-    <div id="outputImages" class="output-images"></div>
-  </div>
+<div class="container">
+  <h1><i class="fa-solid fa-file-image"></i> PDF ➜ JPG Converter</h1>
+
+  <label class="dropZone" id="pdfDropZone" for="pdfToJpgInput">
+    Drop or Select PDF
+  </label>
+  <input type="file" id="pdfToJpgInput" accept=".pdf" />
+
+  <div id="pdfFileList" class="file-list"></div>
+
+  <button id="convertToJpgBtn">Convert to JPG</button>
+  <div id="status" class="status"></div>
+</div>
 `,
   pdfEditor: `
     <div class="container">
@@ -682,51 +687,111 @@ function initJpgToPdf() {
 // ========== end =========
 
 async function initPdfToJpg() {
-  const fileInput = document.getElementById("pdfToJpgInput");
-  const status = document.getElementById("status");
-  const outputContainer = document.getElementById("outputImages");
+  const dropZone = document.getElementById("pdfDropZone");
+  const input = document.getElementById("pdfToJpgInput");
+  const fileListDiv = document.getElementById("pdfFileList");
+  const convertBtn = document.getElementById("convertToJpgBtn");
+  const statusDiv = document.getElementById("status");
   
-  if (!fileInput.files.length) {
-    status.textContent = "⚠️ Please select a PDF first!";
-    return;
+  let selectedFile = null;
+  let pageCount = 0;
+  
+  // 📂 Manual file selection
+  input.addEventListener("change", (e) => handleFile(e.target.files[0]));
+  
+  // 📥 Drag & Drop
+  dropZone.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    dropZone.classList.add("dragging");
+  });
+  dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragging"));
+  dropZone.addEventListener("drop", (e) => {
+    e.preventDefault();
+    dropZone.classList.remove("dragging");
+    if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+  });
+  
+  // 📄 Handle file selection
+  async function handleFile(file) {
+    if (!file || file.type !== "application/pdf") {
+      alert("Please select a valid PDF file.");
+      return;
+    }
+    selectedFile = file;
+    input.value = "";
+    fileListDiv.innerHTML = `<p><i class="fa-solid fa-file-pdf"></i> ${file.name}</p>`;
+    statusDiv.textContent = "Reading PDF...";
+    
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      pageCount = pdf.numPages;
+      renderFileInfo(file.name, pageCount);
+      statusDiv.textContent = `✅ Loaded: ${pageCount} page(s)`;
+    } catch (err) {
+      console.error(err);
+      statusDiv.textContent = "❌ Failed to read PDF.";
+    }
   }
   
-  const file = fileInput.files[0];
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  
-  outputContainer.innerHTML = "";
-  status.textContent = "Converting... Please wait.";
-  
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const viewport = page.getViewport({ scale: 2 });
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
-    canvas.height = viewport.height;
-    canvas.width = viewport.width;
-    
-    await page.render({ canvasContext: context, viewport }).promise;
-    
-    const imgData = canvas.toDataURL("image/jpeg", 1.0);
-    const img = document.createElement("img");
-    img.src = imgData;
-    img.classList.add("converted-image");
-    
-    const link = document.createElement("a");
-    link.href = imgData;
-    link.download = `page-${i}.jpg`;
-    link.textContent = `Download Page ${i}`;
-    link.classList.add("download-link");
-    
-    const block = document.createElement("div");
-    block.classList.add("image-block");
-    block.append(img, link);
-    outputContainer.append(block);
+  // 📋 Show PDF name + total pages
+  function renderFileInfo(fileName, count) {
+    fileListDiv.innerHTML = `
+      <div class="file-list">
+        <span><i class="fa-solid fa-file-pdf"></i> ${fileName}</span>
+        <p>Total Pages: <strong>${count}</strong></p>
+      </div>
+    `;
   }
   
-  status.textContent = `✅ Converted ${pdf.numPages} page(s) successfully!`;
+  // ⚡ Convert PDF → JPG
+  convertBtn.addEventListener("click", async () => {
+    if (!selectedFile) {
+      alert("Please select a PDF first!");
+      return;
+    }
+    
+    statusDiv.textContent = "⏳ Converting... Please wait.";
+    
+    try {
+      const arrayBuffer = await selectedFile.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const zip = new JSZip();
+      const images = [];
+      
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 2 });
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        const dataUrl = canvas.toDataURL("image/jpeg", 1.0);
+        images.push({ name: `page_${i}.jpg`, dataUrl });
+        zip.file(`page_${i}.jpg`, dataUrl.split(",")[1], { base64: true });
+      }
+      
+      // 📦 Download logic
+      if (images.length === 1) {
+        const a = document.createElement("a");
+        a.href = images[0].dataUrl;
+        a.download = selectedFile.name.replace(/\.pdf$/i, ".jpg");
+        a.click();
+        statusDiv.textContent = "✅ Single JPG downloaded!";
+      } else {
+        const blob = await zip.generateAsync({ type: "blob" });
+        saveAs(blob, selectedFile.name.replace(/\.pdf$/i, "_images.zip"));
+        statusDiv.textContent = `✅ ${images.length} JPGs exported to ZIP.`;
+      }
+    } catch (err) {
+      console.error(err);
+      statusDiv.textContent = "❌ Error converting PDF to JPG.";
+    }
+  });
 }
+
+
 
 function initPdfEditor() {
   const saveBtn = document.getElementById('saveEditedPdf');

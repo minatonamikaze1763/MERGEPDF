@@ -188,7 +188,7 @@ button:hover {
 }
 
 /* Status */
-.status
+.status,
 #status{
   margin: 1rem;
   color: var(--text-color);
