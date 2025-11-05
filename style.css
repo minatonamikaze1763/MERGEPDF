@@ -107,9 +107,18 @@ body {
 
 h1 {
   color: var(--heading-color);
-  margin-bottom: 1.5rem;
+  margin-top: 0;
+  margin-bottom: 2rem;
 }
-
+input{
+  border: 1px solid var(--border-color);
+  padding: 10px 10px;
+  border-radius: 5px;
+  margin: 0 1rem;
+}
+input:focus{
+  outline: 2px solid var(--border-color);
+}
 /* Drag & Drop */
 .dropZone {
   border: 2px dashed var(--primary-color);
@@ -130,7 +139,9 @@ h1 {
 #pdfFiles {
   display: none;
 }
-
+.options{
+  margin-bottom: 1rem;
+}
 /* Buttons */
 button {
   background: var(--primary-color);
@@ -147,8 +158,8 @@ button:hover {
 }
 
 /* Status */
-#status {
-  margin-top: 1rem;
+.status {
+  margin: 1rem;
   color: var(--text-color);
   font-weight: bold;
 }
@@ -176,17 +187,6 @@ button:hover {
   align-items: center;
 }
 
-.remove-btn {
-  background: #ff4b4b;
-  border: none;
-  color: #fff;
-  padding: .3rem .6rem;
-  border-radius: 4px;
-  cursor: pointer;
-}
-.remove-btn:hover {
-  background: #e60000;
-}
 
 /* ===== Responsive ===== */
 @media (max-width: 900px) {
@@ -250,4 +250,18 @@ button {
   font-size: 1rem;
   cursor: pointer;
   transition: 0.3s;
+}
+
+button.remove-btn {
+  background:#ff4b4b ;
+  border: none;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  padding: .3rem .5rem;
+}
+
+.remove-btn:hover {
+  background: #e60000;
 }

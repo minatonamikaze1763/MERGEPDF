@@ -11,7 +11,7 @@ const tools = {
   </label>
   <input type="file" id="mergePdfFiles" multiple accept=".pdf" />
   <button id="mergeGenerateBtn">Generate Merged PDF</button>
-  <div id="mergeStatus"></div>
+  <div id="mergeStatus" class="status"></div>
   <div id="mergeFileList"></div>
 </div>
   `,
@@ -21,7 +21,7 @@ const tools = {
       <h1><i class="fa-solid fa-arrows-split-up-and-left"></i>  Split PDF File</h1>
       <label class="dropZone" for="splitPdf">Select or Drop a PDF File</label>
       <input type="file" id="splitPdf" accept=".pdf" />
-      <div class="split-options">
+      <div class="split-options options">
         <label>Page Range (e.g., 1-3 or 5):</label>
         <input type="text" id="pageRange" placeholder="Enter pages to split..." />
       </div>
@@ -233,7 +233,7 @@ function initMerge() {
     
     fileListDiv.innerHTML = `
       <div class="file-list">
-        <span class="indicator">📄 ${mergeFiles.length} file(s) selected</span>
+        <span class="indicator"><i class="fa-solid fa-file-lines"></i> ${mergeFiles.length} file(s) selected</span>
         <button id="mergeSortBtn" type="button">
           ${sortAsc ? "Sort ↓ (Z-A)" : "Sort ↑ (A-Z)"}
         </button>
@@ -241,7 +241,9 @@ function initMerge() {
           ${mergeFiles.map((f, i) => `
             <li>
               <span class="file-name">${i + 1}. ${f.name}</span>
-              <button class="remove-btn" data-index="${i}" type="button" aria-label="Remove file">✖</button>
+              <button class="remove-btn" data-index="${i}" aria-label="Remove file">
+              <i class="fa-solid fa-xmark"></i>
+              </button>
             </li>
           `).join('')}
         </ul>
@@ -291,7 +293,7 @@ function initMerge() {
       const mergedBytes = await mergedPdf.save();
       const blob = new Blob([mergedBytes], { type: 'application/pdf' });
       saveAs(blob, `merged_${Date.now()}.pdf`);
-      statusDiv.textContent = '✅ Merged PDF downloaded successfully!';
+      statusDiv.innerHTML = `<i class="fa-solid fa-circle-check"></i> Merged PDF downloaded successfully!`;
     } catch (err) {
       console.error(err);
       statusDiv.textContent = '❌ Error merging PDFs.';
