@@ -233,7 +233,7 @@ function initMerge() {
     
     fileListDiv.innerHTML = `
       <div class="file-list">
-        <span class="indicator"><i class="fa-solid fa-file-lines"></i> ${mergeFiles.length} file(s) selected</span>
+        <span class="indicator"> <i class="fa-solid fa-file-lines"> .</i>  ${mergeFiles.length} Files selected </span>
         <button id="mergeSortBtn" type="button">
           ${sortAsc ? "Sort ↓ (Z-A)" : "Sort ↑ (A-Z)"}
         </button>
