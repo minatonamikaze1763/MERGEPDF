@@ -718,9 +718,11 @@ function initJpgToPdf() {
     }
     
     const pdfBytes = await pdfDoc.save();
-    saveAs(new Blob([pdfBytes], { type: "application/pdf" }), `merged_images_${Date.now()}.pdf`);
+    
+    // ✅ Use the first image’s name for the PDF file name
+    const firstFileName = files[0].name.replace(/\.[^/.]+$/, "");
+    saveAs(new Blob([pdfBytes], { type: "application/pdf" }), `${firstFileName}.pdf`);
   }
-  
   // 📦 Separate PDFs into ZIP
   async function createSeparatePDFsZip(files) {
     const { PDFDocument } = PDFLib;
@@ -888,80 +890,159 @@ async function initPdfEditor() {
   }
   
   // ✅ Render & overlay text
-async function renderPdf(file) {
-  const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-  
-  const fileDiv = document.createElement("div");
-  fileDiv.className = "pdf-file-wrapper";
-  fileDiv.innerHTML = `<h3>${file.name}</h3>`;
-  previewContainer.appendChild(fileDiv);
-  
-  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-    const page = await pdf.getPage(pageNum);
-    const scale = 1.4;
-    const viewport = page.getViewport({ scale });
+  async function renderPdf(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     
-    // Empty HTML wrapper (no canvas)
-    const pageWrapper = document.createElement("div");
-    pageWrapper.className = "page-wrapper";
-    pageWrapper.style.position = "relative";
-    pageWrapper.style.width = `${viewport.width}px`;
-    pageWrapper.style.height = `${viewport.height}px`;
-    pageWrapper.style.marginBottom = "1rem";
-    pageWrapper.style.background = "#fff";
-    pageWrapper.style.border = "1px solid #ccc";
-    fileDiv.appendChild(pageWrapper);
+    const fileDiv = document.createElement("div");
+    fileDiv.className = "pdf-file-wrapper";
+    fileDiv.innerHTML = `<h3>${file.name}</h3>`;
+    previewContainer.appendChild(fileDiv);
     
-    // Extract text content
-    const textContent = await page.getTextContent();
-    const textLayerDiv = document.createElement("div");
-    textLayerDiv.className = "textLayer";
-    Object.assign(textLayerDiv.style, {
-      position: "absolute",
-      left: "0",
-      top: "0",
-      width: `${viewport.width}px`,
-      height: `${viewport.height}px`,
-    });
-    pageWrapper.appendChild(textLayerDiv);
-    
-    // Build editable text overlay
-    textContent.items.forEach((item) => {
-      const transform = pdfjsLib.Util.transform(viewport.transform, item.transform);
-      const x = transform[4];
-      const y = transform[5];
-      const fontHeight = Math.hypot(transform[2], transform[3]);
+    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const scale = 1.4;
+      const viewport = page.getViewport({ scale });
       
-      const span = document.createElement("span");
-      span.className = "text-span";
-      span.textContent = item.str;
-      span.contentEditable = true;
-      
-      Object.assign(span.style, {
-        position: "absolute",
-        whiteSpace: "pre",
-        left: `${x}px`,
-        top: `${y - fontHeight}px`,
-        fontSize: `${fontHeight}px`,
-        fontFamily: "sans-serif",
-        color: "black",
-        background: "transparent",
-        lineHeight: "1",
-        transformOrigin: "left bottom",
-        pointerEvents: "auto",
+      // Create wrapper for each page
+      const pageWrapper = document.createElement("div");
+      pageWrapper.className = "page-wrapper";
+      Object.assign(pageWrapper.style, {
+        position: "relative",
+        width: `${viewport.width}px`,
+        height: `${viewport.height}px`,
+        marginBottom: "1rem",
+        background: "#fff",
+        border: "1px solid #ccc",
       });
+      fileDiv.appendChild(pageWrapper);
       
-      span.dataset.file = file.name;
-      span.dataset.page = pageNum;
+      // Canvas for rendering visuals (lines/shapes)
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      Object.assign(canvas.style, {
+        position: "absolute",
+        top: "0",
+        left: "0",
+        opacity: "0",
+      });
+      pageWrapper.appendChild(canvas);
       
-      textLayerDiv.appendChild(span);
-    });
+      // Render PDF visuals
+      await page.render({ canvasContext: ctx, viewport }).promise;
+      
+      // Create editable text layer
+      const textContent = await page.getTextContent();
+      const textLayerDiv = document.createElement("div");
+      textLayerDiv.className = "textLayer";
+      Object.assign(textLayerDiv.style, {
+        position: "absolute",
+        left: "0",
+        top: "0",
+        width: `${viewport.width}px`,
+        height: `${viewport.height}px`,
+      });
+      pageWrapper.appendChild(textLayerDiv);
+      
+      // Render editable text
+      textContent.items.forEach((item) => {
+        const transform = pdfjsLib.Util.transform(viewport.transform, item.transform);
+        const x = transform[4];
+        const y = transform[5];
+        const fontHeight = Math.hypot(transform[2], transform[3]);
+        
+        const span = document.createElement("span");
+        span.className = "text-span";
+        span.textContent = item.str;
+        span.contentEditable = true;
+        
+        Object.assign(span.style, {
+          position: "absolute",
+          whiteSpace: "pre",
+          left: `${x}px`,
+          top: `${y - fontHeight}px`,
+          fontSize: `${fontHeight}px`,
+          fontFamily: "sans-serif",
+          color: "black",
+          background: "transparent",
+          lineHeight: "1",
+          transformOrigin: "left bottom",
+          pointerEvents: "auto",
+        });
+        
+        span.dataset.file = file.name;
+        span.dataset.page = pageNum;
+        
+        textLayerDiv.appendChild(span);
+      });
+    }
+    
   }
-}  
   // ✅ Save merged (later connect to pdf-lib logic)
-  saveBtn.addEventListener("click", () => {
-    alert("Editable Sejda-style overlay ready. Hook save logic next!");
+  saveBtn.addEventListener("click", async () => {
+    try {
+      const { PDFDocument, rgb } = PDFLib;
+      
+      // Get all loaded file wrappers
+      const fileWrappers = document.querySelectorAll(".pdf-file-wrapper");
+      const mergedPdf = await PDFDocument.create();
+      
+      for (const fileWrapper of fileWrappers) {
+        const fileName = fileWrapper.querySelector("h3").textContent.trim();
+        const uploadedFile = [...document.getElementById("pdfEditorFile").files].find(f => f.name === fileName);
+        
+        if (!uploadedFile) continue;
+        
+        const arrayBuffer = await uploadedFile.arrayBuffer();
+        const pdf = await PDFDocument.load(arrayBuffer);
+        
+        const pages = pdf.getPages();
+        
+        // For each page in this file
+        const pageWrappers = fileWrapper.querySelectorAll(".page-wrapper");
+        for (let i = 0; i < pages.length; i++) {
+          const page = pages[i];
+          const { width, height } = page.getSize();
+          
+          // Clone into merged PDF
+          const [embeddedPage] = await mergedPdf.copyPages(pdf, [i]);
+          const mergedPage = mergedPdf.addPage(embeddedPage);
+          
+          // Get all edited text spans for this page
+          const textSpans = pageWrappers[i].querySelectorAll(".textLayer .text-span");
+          
+          textSpans.forEach(span => {
+            // only draw if user actually edited the text
+            if (span.textContent.trim() !== span.dataset.originalText?.trim()) {
+              const x = parseFloat(span.style.left);
+              const y = height - parseFloat(span.style.top);
+              const fontSize = parseFloat(span.style.fontSize);
+              const color = rgb(0, 0, 0);
+              
+              mergedPage.drawText(span.textContent, {
+                x,
+                y,
+                size: fontSize,
+                color,
+              });
+            }
+          });
+        }
+      }
+      
+      // Save merged file
+      const pdfBytes = await mergedPdf.save();
+      const blob = new Blob([pdfBytes], { type: "application/pdf" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "edited_merged.pdf";
+      link.click();
+    } catch (err) {
+      console.error("Save failed:", err);
+      alert("Failed to generate the edited PDF. Check console for details.");
+    }
   });
 }
 
