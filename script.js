@@ -616,11 +616,107 @@ async function initPdfToExcel() {
     }
   });
 }
-function initExcelToPdf() {
-  const btn = document.getElementById('convertBtn');
-  btn.addEventListener('click', () => alert("Excel ➜ PDF function not implemented yet."));
-}
 
+function initExcelToPdf() {
+  const dropZone = document.querySelector('.dropZone');
+  const fileInput = document.getElementById('excelFiles');
+  const convertBtn = document.getElementById('convertBtn');
+  const status = document.getElementById('status');
+  let selectedFile = null;
+  
+  // === Drag and Drop Support ===
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+  });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) handleFile(e.target.files[0]);
+  });
+  
+  function handleFile(file) {
+    if (!file.name.endsWith('.xls') && !file.name.endsWith('.xlsx')) {
+      status.innerHTML = `<p style="color:red;">Invalid file type. Please select an Excel file.</p>`;
+      return;
+    }
+    selectedFile = file;
+    status.innerHTML = `<p><b>Selected File:</b> ${file.name}</p>`;
+  }
+  
+  // === Convert Excel to Image + PDF ===
+  convertBtn.addEventListener('click', async () => {
+    if (!selectedFile) {
+      status.innerHTML = `<p style="color:red;">Please select an Excel file first.</p>`;
+      return;
+    }
+    status.innerHTML = `<p>Converting <b>${selectedFile.name}</b>...</p>`;
+    
+    const arrayBuffer = await selectedFile.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
+    
+    let isFirstSheet = true;
+    
+    for (const sheetName of workbook.SheetNames) {
+      const ws = workbook.Sheets[sheetName];
+      const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+      if (!data.length) continue;
+      
+      // Find data boundaries
+      const nonEmptyRows = data.filter(row => row.some(cell => cell !== null && cell !== undefined && cell !== ""));
+      if (!nonEmptyRows.length) continue;
+      
+      // Create hidden HTML table
+      const table = document.createElement("table");
+      table.style.borderCollapse = "collapse";
+      table.style.fontFamily = "Arial";
+      table.style.fontSize = "10pt";
+      table.style.margin = "20px";
+      table.style.border = "1px solid #ccc";
+      
+      for (const row of nonEmptyRows) {
+        const tr = document.createElement("tr");
+        for (const cell of row) {
+          const td = document.createElement("td");
+          td.textContent = cell ?? "";
+          td.style.border = "1px solid #ccc";
+          td.style.padding = "4px 8px";
+          tr.appendChild(td);
+        }
+        table.appendChild(tr);
+      }
+      
+      // Add to DOM temporarily
+      document.body.appendChild(table);
+      
+      // Convert table to image
+      const canvas = await html2canvas(table, { scale: 2 });
+      const imgData = canvas.toDataURL("image/png");
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      
+      if (!isFirstSheet) pdf.addPage();
+      pdf.text(`Sheet: ${sheetName}`, 40, 40);
+      pdf.addImage(imgData, "PNG", 40, 60, pdfWidth - 80, pdfHeight - 60);
+      
+      // Remove table from DOM
+      document.body.removeChild(table);
+      
+      isFirstSheet = false;
+    }
+    
+    const pdfName = selectedFile.name.replace(/\.(xls|xlsx)$/i, ".pdf");
+    pdf.save(pdfName);
+    status.innerHTML = `<p style="color:green;">✅ Conversion complete! Downloading ${pdfName}</p>`;
+  });
+}
 
 // ========== jpg to pdf =========
 function initJpgToPdf() {
